@@ -58,13 +58,19 @@ static void ns_cmd_register(sourceinfo_t *si, int parc, char *parv[])
 	else
 		account = si->su->nick, pass = parv[0], email = parv[1];
 
-	if (!account || !pass || !email)
+	if (!account || !pass || ((me.auth == AUTH_EMAIL) && !email))
 	{
 		command_fail(si, fault_needmoreparams, STR_INSUFFICIENT_PARAMS, "REGISTER");
 		if (nicksvs.no_nick_ownership || si->su == NULL)
-			command_fail(si, fault_needmoreparams, _("Syntax: REGISTER <account> <password> <email>"));
+			if (me.auth == AUTH_EMAIL)
+				command_fail(si, fault_needmoreparams, _("Syntax: REGISTER <account> <password> <email>"));
+			else
+				command_fail(si, fault_needmoreparams, _("Syntax: REGISTER <account> <password> [email]"));
 		else
-			command_fail(si, fault_needmoreparams, _("Syntax: REGISTER <password> <email>"));
+			if (me.auth == AUTH_EMAIL)
+				command_fail(si, fault_needmoreparams, _("Syntax: REGISTER <password> <email>"));
+			else
+				command_fail(si, fault_needmoreparams, _("Syntax: REGISTER <password> [email]"));
 		return;
 	}
 
@@ -107,9 +113,15 @@ static void ns_cmd_register(sourceinfo_t *si, int parc, char *parv[])
 	{
 		command_fail(si, fault_badparams, _("You cannot use your nickname as a password."));
 		if (nicksvs.no_nick_ownership || si->su == NULL)
-			command_fail(si, fault_needmoreparams, _("Syntax: REGISTER <account> <password> <email>"));
+			if (me.auth == AUTH_EMAIL)
+				command_fail(si, fault_needmoreparams, _("Syntax: REGISTER <account> <password> <email>"));
+			else
+				command_fail(si, fault_needmoreparams, _("Syntax: REGISTER <account> <password> [email]"));
 		else
-			command_fail(si, fault_needmoreparams, _("Syntax: REGISTER <password> <email>"));
+			if (me.auth == AUTH_EMAIL)
+				command_fail(si, fault_needmoreparams, _("Syntax: REGISTER <password> <email>"));
+			else
+				command_fail(si, fault_needmoreparams, _("Syntax: REGISTER <password> [email]"));
 		return;
 	}
 
@@ -146,16 +158,19 @@ static void ns_cmd_register(sourceinfo_t *si, int parc, char *parv[])
 			return;
 	}
 
-	if (!validemail(email))
+	if (me.auth == AUTH_EMAIL)
 	{
-		command_fail(si, fault_badparams, _("\2%s\2 is not a valid email address."), email);
-		return;
-	}
+		if (!validemail(email))
+		{
+			command_fail(si, fault_badparams, _("\2%s\2 is not a valid email address."), email);
+			return;
+		}
 
-	if (!email_within_limits(email))
-	{
-		command_fail(si, fault_toomany, _("\2%s\2 has too many accounts registered."), email);
-		return;
+		if (!email_within_limits(email))
+		{
+			command_fail(si, fault_toomany, _("\2%s\2 has too many accounts registered."), email);
+			return;
+		}
 	}
 
 	mu = myuser_add(account, auth_module_loaded ? "*" : pass, email, config_options.defuflags | MU_NOBURSTLOGIN | (auth_module_loaded ? MU_CRYPTPASS : 0));
